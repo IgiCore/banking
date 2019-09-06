@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Entity.Migrations;
+using System.Linq;
 using System.Threading.Tasks;
 using IgiCore.Banking.Server.Models;
 using IgiCore.Banking.Server.Storage;
@@ -23,6 +24,24 @@ namespace IgiCore.Banking.Server
 		{
 			// Send configuration when requested
 			this.Rpc.Event(BankingEvents.Configuration).On(e => e.Reply(this.Configuration));
+			this.Rpc.Event(BankingEvents.GetATMs).On(e => e.Reply(this.GetATMs()));
+			this.Rpc.Event(BankingEvents.GetBranches).On(e => e.Reply(this.GetBranches()));
+		}
+
+		private List<BankBranch> GetBranches()
+		{
+			using (var context = new StorageContext())
+			{
+				return context.BankBranches.ToList();
+			}
+		}
+
+		private List<BankATM> GetATMs()
+		{
+			using (var context = new StorageContext())
+			{
+				return context.BankATMs.ToList();
+			}
 		}
 
 		public override void Reload(Configuration configuration)
