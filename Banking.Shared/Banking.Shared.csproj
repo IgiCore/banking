@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -37,6 +37,14 @@
     </AllowedReferenceRelatedFileExtensions>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="IgiCore.Characters.Shared.net">
+      <HintPath>..\plugins\IgiCore\characters\IgiCore.Characters.Shared.net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IgiCore.Inventory.Shared.net">
+      <HintPath>..\plugins\IgiCore\inventory\IgiCore.Inventory.Shared.net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="JetBrains.Annotations, Version=2019.1.3.0, Culture=neutral, PublicKeyToken=1010a0d8d6380325, processorArchitecture=MSIL">
       <HintPath>..\packages\JetBrains.Annotations.2019.1.3\lib\net20\JetBrains.Annotations.dll</HintPath>
       <Private>False</Private>
@@ -52,8 +60,16 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BankAccountTypes.cs" />
     <Compile Include="BankingEvents.cs" />
     <Compile Include="Configuration.cs" />
+    <Compile Include="Models\IBank.cs" />
+    <Compile Include="Models\IBankAccount.cs" />
+    <Compile Include="Models\IBankAccountCard.cs" />
+    <Compile Include="Models\IBankAccountMember.cs" />
+    <Compile Include="Models\IBankATM.cs" />
+    <Compile Include="Models\IBankBranch.cs" />
+    <Compile Include="Models\IBankCard.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
