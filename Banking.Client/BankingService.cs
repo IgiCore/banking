@@ -20,6 +20,7 @@ using IgiCore.Banking.Shared;
 using IgiCore.Banking.Shared.Models;
 using NFive.SDK.Client.Extensions;
 using NFive.SDK.Client.Input;
+using NFive.SDK.Core.Helpers;
 using NFive.SDK.Core.Rpc;
 
 namespace IgiCore.Banking.Client
@@ -32,6 +33,9 @@ namespace IgiCore.Banking.Client
 
 		private List<BankATM> atms = new List<BankATM>();
 		private List<BankBranch> branches = new List<BankBranch>();
+		private Dictionary<BankBranch, Ped> tellers = new Dictionary<BankBranch, Ped>();
+		private bool InAnim { get; set; }
+		private Camera Camera { get; set; }
 
 		public BankingService(ILogger logger, ITickManager ticks, IEventManager events, IRpcHandler rpc, ICommandManager commands, OverlayManager overlay, User user) : base(logger, ticks, events, rpc, commands, overlay, user) { }
 
@@ -49,10 +53,97 @@ namespace IgiCore.Banking.Client
 			// Create overlay
 			this.overlay = new BankingOverlay(this.OverlayManager);
 
-			// Attach a tick handler
-			this.Ticks.Attach(OnTick);
+			this.Logger.Debug($"Branch: {this.branches.First().Name}  |  Position: {this.branches.First().Position}");
 
+			// Attach a tick handlers
 			this.Ticks.Attach(ATMTick);
+			this.Ticks.Attach(BranchTick);
+		}
+
+		private async Task BranchTick()
+		{
+			foreach (var bankBranch in this.branches)
+			{
+				var bankBranchPos = new Vector3(bankBranch.Position.X, bankBranch.Position.Y, bankBranch.Position.Z);
+				if (this.tellers.ContainsKey(bankBranch) && this.tellers[bankBranch].Handle != 0)
+				{
+					this.tellers[bankBranch].Position = bankBranchPos;
+					this.tellers[bankBranch].Heading = bankBranch.Heading;
+					continue;
+				}
+				var tellerModel = new Model(PedHash.Bankman);
+				await tellerModel.Request(-1);
+				this.tellers[bankBranch] = await World.CreatePed(tellerModel, bankBranchPos, bankBranch.Heading);
+				this.tellers[bankBranch].Task?.ClearAllImmediately();
+				this.tellers[bankBranch].Task?.StandStill(1);
+				this.tellers[bankBranch].AlwaysKeepTask = true;
+				this.tellers[bankBranch].IsInvincible = true;
+				this.tellers[bankBranch].IsPositionFrozen = true;
+				this.tellers[bankBranch].BlockPermanentEvents = true;
+				this.tellers[bankBranch].IsCollisionProof = false;
+			}
+
+			if (this.InAnim && Input.IsControlJustPressed(Control.MoveUpOnly))
+			{
+				Game.Player.Character.Task.ClearAll();
+				Game.Player.Character.Task.ClearLookAt();
+				World.DestroyAllCameras();
+				this.Camera = null;
+				World.RenderingCamera = null;
+				this.InAnim = false;
+			}
+
+			if (Game.Player.Character.IsInVehicle() || this.InAnim) return;
+
+			var teller = this.tellers
+				.Select(t => new { teller = t, distance = t.Value?.Position.DistanceToSquared(Game.Player.Character.Position) ?? float.MaxValue })
+				.Where(t => t.distance < 5.0F) // Nearby
+											   //.Where(a => Vector3.Dot(a.Item2.ForwardVector, Vector3.Normalize(a.Item2.Position - Game.Player.ActiveCharacter.Position)).IsBetween(0f, 1.0f)) // In front of
+				.OrderBy(t => t.distance)
+				.Select(t => t.teller)
+				.FirstOrDefault();
+
+			if (teller.Value == null) return;
+
+			new Text($"Press Z to use Branch {teller.Key.Name}", new PointF(50, Screen.Height - 50), 0.4f, Color.FromArgb(255, 255, 255), Font.ChaletLondon, Alignment.Left, false, true).Draw();
+
+			if (!Input.IsControlJustPressed(Control.MultiplayerInfo)) return;
+
+			this.InAnim = true;
+
+			var bankTeller = teller.Value;
+
+			var ts = new TaskSequence();
+			ts.AddTask.LookAt(bankTeller);
+			var moveToPos = bankTeller.GetPositionInFront(1.5f);
+			ts.AddTask.GoTo(new Vector3(moveToPos.X, moveToPos.Y, moveToPos.Z));
+			ts.AddTask.AchieveHeading(bankTeller.Heading - 180);
+			ts.Close();
+			await Game.Player.Character.RunTaskSequence(ts);
+			Game.Player.Character.Task.LookAt(bankTeller);
+			Game.Player.Character.Task.StandStill(-1);
+
+			// camera
+			if (this.Camera == null) this.Camera = World.CreateCamera(GameplayCamera.Position, GameplayCamera.Rotation, GameplayCamera.FieldOfView);
+			World.RenderingCamera = this.Camera;
+
+			for (float t = 0; t < 1f; t += 0.01f)
+			{
+				var interval = (float)(t < 0.5 ? 2.0 * t * t : -2.0 * t * t + 4.0 * t - 1.0);
+				var tellerFrontPos = teller.Value.Position.ToVector3().TranslateDir(bankTeller.Heading + 110, 2.2f);
+				var cameraPos = VectorExtensions.Lerp(
+					GameplayCamera.Position.ToVector3(),
+					(new Vector3(tellerFrontPos.X, tellerFrontPos.Y, tellerFrontPos.Z) + (Vector3.UnitZ * 0.8f))
+					.ToVector3(),
+					interval
+				);
+				this.Camera.Position = new Vector3(cameraPos.X, cameraPos.Y, cameraPos.Z);
+				var cameraFocus = VectorExtensions.Lerp(Game.PlayerPed.Position.ToVector3(),
+					bankTeller.Position.ToVector3(), interval);
+				this.Camera.PointAt( new Vector3(cameraFocus.X, cameraFocus.Y, cameraFocus.Z) + Vector3.UnitZ * 0.4f);
+				this.Camera.FieldOfView = MathHelpers.Lerp(GameplayCamera.FieldOfView, 30, interval);
+				await Delay(TimeSpan.FromMilliseconds(1));
+			}
 		}
 
 		private async Task ATMTick()
@@ -76,9 +167,9 @@ namespace IgiCore.Banking.Client
 
 			if (atm == null) return;
 
-			new Text("Press M to use ATM", new PointF(50, Screen.Height - 50), 0.4f, Color.FromArgb(255, 255, 255), Font.ChaletLondon, Alignment.Left, false, true).Draw();
+			new Text("Press Z to use ATM", new PointF(50, Screen.Height - 50), 0.4f, Color.FromArgb(255, 255, 255), Font.ChaletLondon, Alignment.Left, false, true).Draw();
 
-			if (!Input.IsControlJustPressed(Control.InteractionMenu)) return;
+			if (!Input.IsControlJustPressed(Control.MultiplayerInfo)) return;
 
 			var ts = new TaskSequence();
 			ts.AddTask.LookAt(atm.Item2);
@@ -95,8 +186,6 @@ namespace IgiCore.Banking.Client
 
 			await Delay(TimeSpan.FromSeconds(1));
 		}
-
-		public bool InAnim { get; set; }
 
 		private async Task OnTick()
 		{
