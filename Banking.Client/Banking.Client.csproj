@@ -69,6 +69,8 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ATMService.cs" />
+    <Compile Include="Extensions\PositionExtensions.cs" />
     <Compile Include="Models\Bank.cs" />
     <Compile Include="Models\BankAccount.cs" />
     <Compile Include="Models\BankAccountCard.cs" />
@@ -78,7 +80,7 @@
     <Compile Include="Models\BankCard.cs" />
     <Compile Include="Overlays\BankingOverlay.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="BankingService.cs" />
+    <Compile Include="BranchService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
