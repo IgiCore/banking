@@ -38,7 +38,7 @@ namespace IgiCore.Banking.Client
 
 			// Attach a tick handlers
 			this.Ticks.Attach(BranchTick);
-			this.Ticks.Attach(BranchInteractionTick);
+			this.Ticks.Attach((Action)BranchInteractionTick);
 		}
 
 		private void BranchInteractionTick()

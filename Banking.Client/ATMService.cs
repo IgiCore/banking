@@ -39,7 +39,7 @@ namespace IgiCore.Banking.Client
 
 			// Attach a tick handlers
 			this.Ticks.Attach(ATMTick);
-			this.Ticks.Attach(AnimHandler);
+			this.Ticks.Attach((Action)AnimHandler);
 		}
 
 		private void AnimHandler()
