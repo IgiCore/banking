@@ -2,11 +2,9 @@ using JetBrains.Annotations;
 using NFive.SDK.Client.Commands;
 using NFive.SDK.Client.Events;
 using NFive.SDK.Client.Interface;
-using NFive.SDK.Client.Rpc;
 using NFive.SDK.Client.Services;
 using NFive.SDK.Core.Diagnostics;
 using NFive.SDK.Core.Models.Player;
-using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -16,9 +14,12 @@ using CitizenFX.Core.Native;
 using CitizenFX.Core.UI;
 using IgiCore.Banking.Client.Models;
 using IgiCore.Banking.Shared;
+using NFive.SDK.Client.Communications;
 using NFive.SDK.Client.Extensions;
 using NFive.SDK.Client.Input;
-using NFive.SDK.Core.Helpers;
+using NFive.SDK.Core.Extensions;
+using NFive.SDK.Core.Input;
+using Font = CitizenFX.Core.UI.Font;
 
 namespace IgiCore.Banking.Client
 {
@@ -30,20 +31,24 @@ namespace IgiCore.Banking.Client
 		private bool InAnim { get; set; }
 		private Camera Camera { get; set; }
 
-		public BranchService(ILogger logger, ITickManager ticks, IEventManager events, IRpcHandler rpc, ICommandManager commands, OverlayManager overlay, User user) : base(logger, ticks, events, rpc, commands, overlay, user) { }
+		private readonly Hotkey animCancelKey = new Hotkey(InputControl.MoveUp);
+
+		private readonly Hotkey interactKey = new Hotkey(InputControl.MultiplayerInfo);
+
+		public BranchService(ILogger logger, ITickManager ticks, ICommunicationManager comms, ICommandManager commands, IOverlayManager overlay, User user) : base(logger, ticks, comms, commands, overlay, user) { }
 
 		public override async Task Started()
 		{
-			this.branches = await this.Rpc.Event(BankingEvents.GetBranches).Request<List<BankBranch>>();
+			this.branches = await this.Comms.Event(BankingEvents.GetBranches).ToServer().Request<List<BankBranch>>();
 
 			// Attach a tick handlers
-			this.Ticks.Attach(BranchTick);
-			this.Ticks.Attach(BranchInteractionTick);
+			this.Ticks.On(BranchTick);
+			this.Ticks.On(BranchInteractionTick);
 		}
 
 		private void BranchInteractionTick()
 		{
-			if (!this.InAnim || !Input.IsControlJustPressed(Control.MoveUpOnly)) return;
+			if (!this.InAnim || !this.animCancelKey.IsJustPressed()) return;
 			Game.Player.Character.Task.ClearAllImmediately();
 			Game.Player.Character.Task.ClearLookAt();
 			World.DestroyAllCameras();
@@ -91,7 +96,7 @@ namespace IgiCore.Banking.Client
 			// Add UI text
 			new Text($"Press Z to use Branch {teller.Key.Name}", new PointF(50, Screen.Height - 50), 0.4f, Color.FromArgb(255, 255, 255), Font.ChaletLondon, Alignment.Left, false, true).Draw();
 
-			if (!Input.IsControlJustPressed(Control.MultiplayerInfo)) return;
+			if (!this.interactKey.IsJustPressed()) return;
 
 			// Initiate ped interaction
 			this.InAnim = true;

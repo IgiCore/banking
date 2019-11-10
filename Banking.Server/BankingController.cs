@@ -8,24 +8,25 @@ using IgiCore.Banking.Server.Storage;
 using JetBrains.Annotations;
 using NFive.SDK.Core.Diagnostics;
 using NFive.SDK.Server.Controllers;
-using NFive.SDK.Server.Events;
-using NFive.SDK.Server.Rcon;
-using NFive.SDK.Server.Rpc;
 using IgiCore.Banking.Shared;
-using NFive.SDK.Core.Extensions;
 using NFive.SDK.Core.Models;
+using NFive.SDK.Server.Communications;
 
 namespace IgiCore.Banking.Server
 {
 	[PublicAPI]
 	public class BankingController : ConfigurableController<Configuration>
 	{
-		public BankingController(ILogger logger, IEventManager events, IRpcHandler rpc, IRconManager rcon, Configuration configuration) : base(logger, events, rpc, rcon, configuration)
+		private readonly ICommunicationManager comms;
+
+		public BankingController(ILogger logger, Configuration configuration, ICommunicationManager comms) : base(logger, configuration)
 		{
+			this.comms = comms;
+
 			// Send configuration when requested
-			this.Rpc.Event(BankingEvents.Configuration).On(e => e.Reply(this.Configuration));
-			this.Rpc.Event(BankingEvents.GetATMs).On(e => e.Reply(this.GetATMs()));
-			this.Rpc.Event(BankingEvents.GetBranches).On(e => e.Reply(this.GetBranches()));
+			this.comms.Event(BankingEvents.Configuration).FromClients().OnRequest(e => e.Reply(this.Configuration));
+			this.comms.Event(BankingEvents.GetATMs).FromClients().OnRequest(e => e.Reply(this.GetATMs()));
+			this.comms.Event(BankingEvents.GetBranches).FromClients().OnRequest(e => e.Reply(this.GetBranches()));
 		}
 
 		private List<BankBranch> GetBranches()
@@ -42,15 +43,6 @@ namespace IgiCore.Banking.Server
 			{
 				return context.BankATMs.ToList();
 			}
-		}
-
-		public override void Reload(Configuration configuration)
-		{
-			// Update local configuration
-			base.Reload(configuration);
-
-			// Send out new configuration
-			this.Rpc.Event(BankingEvents.Configuration).Trigger(this.Configuration);
 		}
 
 		public override Task Started()

@@ -1,25 +1,28 @@
 using JetBrains.Annotations;
 using NFive.SDK.Client.Commands;
 using NFive.SDK.Client.Events;
-using NFive.SDK.Client.Interface;
-using NFive.SDK.Client.Rpc;
 using NFive.SDK.Client.Services;
 using NFive.SDK.Core.Diagnostics;
 using NFive.SDK.Core.Models.Player;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using CitizenFX.Core;
 using CitizenFX.Core.Native;
 using CitizenFX.Core.UI;
-using IgiCore.Banking.Client.Extensions;
 using IgiCore.Banking.Client.Models;
 using IgiCore.Banking.Shared;
+using NFive.SDK.Client.Communications;
 using NFive.SDK.Client.Extensions;
 using NFive.SDK.Client.Input;
+using NFive.SDK.Client.Interface;
 using NFive.SDK.Core.Extensions;
+using Vector3 = CitizenFX.Core.Vector3;
+using System.Drawing;
+using NFive.SDK.Core.Input;
+using Color = System.Drawing.Color;
+using Font = CitizenFX.Core.UI.Font;
 
 namespace IgiCore.Banking.Client
 {
@@ -31,20 +34,24 @@ namespace IgiCore.Banking.Client
 
 		private Camera Camera { get; set; }
 
-		public ATMService(ILogger logger, ITickManager ticks, IEventManager events, IRpcHandler rpc, ICommandManager commands, OverlayManager overlay, User user) : base(logger, ticks, events, rpc, commands, overlay, user) { }
+		private readonly Hotkey animCancelKey = new Hotkey(InputControl.MoveUp);
+
+		private readonly Hotkey interactKey = new Hotkey(InputControl.MultiplayerInfo);
+
+		public ATMService(ILogger logger, ITickManager ticks, ICommunicationManager comms, ICommandManager commands, IOverlayManager overlay, User user) : base(logger, ticks, comms, commands, overlay, user) { }
 
 		public override async Task Started()
 		{
-			this.atms = await this.Rpc.Event(BankingEvents.GetATMs).Request<List<BankATM>>();
+			this.atms = await this.Comms.Event(BankingEvents.GetATMs).ToServer().Request<List<BankATM>>();
 
 			// Attach a tick handlers
-			this.Ticks.Attach(ATMTick);
-			this.Ticks.Attach(AnimHandler);
+			this.Ticks.On(ATMTick);
+			this.Ticks.On(AnimHandler);
 		}
 
 		private void AnimHandler()
 		{
-			if (!this.InAnim || !Input.IsControlJustPressed(Control.MoveUpOnly)) return;
+			if (!this.InAnim || !this.animCancelKey.IsJustPressed()) return;
 			Game.Player.Character.Task.ClearAllImmediately();
 			Game.Player.Character.Task.ClearLookAt();
 			World.DestroyAllCameras();
@@ -70,7 +77,7 @@ namespace IgiCore.Banking.Client
 
 			new Text("Press Z to use ATM", new PointF(50, Screen.Height - 50), 0.4f, Color.FromArgb(255, 255, 255), Font.ChaletLondon, Alignment.Left, false, true).Draw();
 
-			if (!Input.IsControlJustPressed(Control.MultiplayerInfo)) return;
+			if (!this.interactKey.IsJustPressed()) return;
 
 			var atmModel = atm.Item2;
 
