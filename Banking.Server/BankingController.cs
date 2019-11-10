@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Data.Entity.Migrations;
+using System.Linq;
+using System.Threading.Tasks;
 using IgiCore.Banking.Server.Models;
 using IgiCore.Banking.Server.Storage;
 using IgiCore.Banking.Shared;
@@ -5,8 +10,6 @@ using JetBrains.Annotations;
 using NFive.SDK.Core.Diagnostics;
 using NFive.SDK.Core.Models;
 using NFive.SDK.Server.Controllers;
-using IgiCore.Banking.Shared;
-using NFive.SDK.Core.Models;
 using NFive.SDK.Server.Communications;
 
 namespace IgiCore.Banking.Server
