@@ -26,7 +26,7 @@ namespace IgiCore.Banking.Client
 	[PublicAPI]
 	public class BranchService : Service
 	{
-		private List<BankBranch> branches;
+		private List<BankBranch> branches = new List<BankBranch>();
 		private readonly Dictionary<BankBranch, Ped> tellers = new Dictionary<BankBranch, Ped>();
 		private bool InAnim { get; set; }
 		private Camera Camera { get; set; }
